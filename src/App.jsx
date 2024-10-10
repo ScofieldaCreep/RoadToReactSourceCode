@@ -1,17 +1,15 @@
-import { useState, useEffect, Fragment } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { useState, useEffect, useReducer } from 'react'
 import './App.css'
 
-const List = ({ list, onRemoveItem, isLoaded }) => {
-  return isLoaded ? (
+const List = ({ list, onRemoveItem, isLoading }) => {
+  return isLoading ? (
+    <p>Loading...</p>
+  ) : (
     <ul>
       {list.map((item) => (
         <Item key={item.objectID} item={item} onRemoveItem={onRemoveItem} />
       ))}
     </ul>
-  ) : (
-    <p>Loading...</p>
   )
 }
 
@@ -87,26 +85,45 @@ const getAsyncStories = () =>
       { data: { stories: initialStories } },
     ), 2000)
   )
+  const storiesReducer = (state, action) => {
+    switch (action.type) {
+      case "SET_STORIES":
+        return action.payload;
+      case "REMOVE_STORY":
+        return state.filter(story =>
+          action.payload.objectID !== story.objectID
+        );
+      default:
+        throw new Error();
+    }
+  }
 
 const App = () => {
-  const [stories, setStories] = useState([])
-  const [isLoaded, setIsLoaded] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [isError, setIsError] = useState(false)
+
+  const [stories, dispatchStories] = useReducer(
+    storiesReducer,
+    []
+  )
   
   useEffect(() => {
+    setIsLoading(true)
     getAsyncStories()
     .then((res) => {
-      setStories(res.data.stories)
-      setIsLoaded(true)
+      dispatchStories({
+        type: "SET_STORIES",
+        payload: res.data.stories,
+      });
+      setIsLoading(false)
     })
-    .catch(() => setIsError(true))
   }, [])
 
   const handleRemoveStory = (item) => {
-    const newStories = stories.filter(
-      (story) => story.objectID !== item.objectID
-    )
-    setStories(newStories)
+    dispatchStories({
+      type: "REMOVE_STORY",
+      payload: item
+    })
   }
 
   const [searchTerm, setSearchTerm] = useStorageState('searchTerm', 'React')
@@ -134,7 +151,7 @@ const App = () => {
       <hr />
       {isError && <p>Something went wrong ...</p>}
       <div>
-        <List list={filteredStories} onRemoveItem={handleRemoveStory} isLoaded={isLoaded} />
+        <List list={filteredStories} onRemoveItem={handleRemoveStory} isLoading={isLoading} />
       </div>
     </div>
   )
