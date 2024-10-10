@@ -1,30 +1,37 @@
 import { useState, useEffect, useReducer, useCallback } from 'react'
+import axios from 'axios'
 import './App.css'
 
 const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query=';
 
 const App = () => {
   const [searchTerm, setSearchTerm] = useStorageState('searchTerm', 'React')
-
+  const [url, setUrl] = useState(`${API_ENDPOINT}${searchTerm}`)
   const [stories, dispatchStories] = useReducer(
     storiesReducer,
     { data: [], isLoading: false, isError: false, searchTerm }
   )
 
   // useCallback is used to memoize functions in React, preventing unnecessary re-creations of functions on re - renders.
-  const handleFetchStories = useCallback(() => {
-    if (!searchTerm) return;
-    console.log("handleFetchStories called")
+  const handleFetchStories = useCallback(async () => {
+
+
     dispatchStories({ type: "STORIES_FETCH_INIT" })
+    try {
+      const res = await axios.get(url);
+      dispatchStories({ type: "STORIES_FETCH_SUCCESS", payload: res.data.hits });
+    } catch {
+      dispatchStories({ type: "STORIES_FETCH_FAILURE" });
+    }
 
-    fetch(`${API_ENDPOINT}${searchTerm}`)
-      .then(resp => resp.json())
-      .then(res => dispatchStories({ type: "STORIES_FETCH_SUCCESS", payload: res.hits }))
-      .catch(() => dispatchStories({ type: "STORIES_FETCH_FAILURE" }))
-  }, [searchTerm]);
+  }, [url]);
+
+  const handleSearchSubmit = () => {
+    setUrl(`${API_ENDPOINT}${searchTerm}`)
+  }
 
 
-  useEffect(handleFetchStories, [handleFetchStories])
+  useEffect(() => { handleFetchStories() }, [handleFetchStories])
 
   const handleRemoveStory = (item) => {
     dispatchStories({
@@ -34,13 +41,9 @@ const App = () => {
   }
 
 
-  const handleSearch = (event) => {
+  const handleSearchInput = (event) => {
     setSearchTerm(event.target.value)
   }
-
-  // const filteredStories = stories.data.filter((story) =>
-  //   story.title.toLowerCase().includes(searchTerm.toLowerCase())
-  // )
 
   return (
     <div>
@@ -49,11 +52,12 @@ const App = () => {
         label="Search"
         id="search"
         value={searchTerm}
-        onInputChange={handleSearch}
+        onInputChange={handleSearchInput}
         type="text"
       >
         <strong>Search: </strong>
       </InputWithLabel>
+      <button type="button" disabled={!searchTerm} onClick={handleSearchSubmit}>Submit</button>
       <hr />
       {stories.isError && <p>Something went wrong ...</p>}
       <div>
